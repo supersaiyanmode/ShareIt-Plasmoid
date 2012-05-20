@@ -1,0 +1,12 @@
+application: file-sharer
+version: 1
+runtime: python
+api_version: 1
+ 
+handlers:
+- url: /paste
+  script: paste.py
+  
+- url: /.*
+  script: show.py
+

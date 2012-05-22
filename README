@@ -1,0 +1,49 @@
+Share-It Plasmoid
+
+CONTENT
+
+1. About
+2. Setting up
+
+
+ABOUT
+
+This plasmoid accepts any supported drag-drop data, uploads it to the server
+and copies the shortened sharing link (using goo.gl service).
+
+The user must set up his application at google app engine to be able to use
+this. Check the 'setting up your server' section for details on how to do this.
+
+
+SETTING UP
+
+ - Setting up your server
+ 
+    1.  Download and extract google app engine Python SDK from here:
+            https://developers.google.com/appengine/downloads
+        Lets say you have this extracted at ~/gae
+
+    2.  Copy the contents from the Server sub-directory (of the source code)to 
+        some location. Lets say ~/server
+        
+    3.  Create a new app on google app engine. The application-identifier that
+        you choose is to be used in the next step.
+    
+    4.  Open ~/server/app.yaml file. Edit the first line 
+            'Application: <your app-id-here>'
+        and put in the application-id you just created.
+    
+    5.  Enter the ~/gae directory and type:
+            python appcfg.py update ~/server
+        You may need to enter your google account details.
+        
+    6.  After successful upload, you need to set up your client side.
+    
+ - Setting up the plasmoid
+ 
+    1.  Create a file: ~/.shareitplasmoid.cfg
+    
+    2.  Edit the application-id field to match the one you created on google
+        app engine.
+        
+    3.  Run the plasmoid .. :)

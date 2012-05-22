@@ -44,6 +44,13 @@ SETTING UP
     1.  Create a file: ~/.shareitplasmoid.cfg
     
     2.  Edit the application-id field to match the one you created on google
-        app engine.
+        app engine like in the following:
+            {
+                "appid":"<app-id here>"
+            }
         
-    3.  Run the plasmoid .. :)
+    3.  Install the plasmoid using the following:
+            zip -r ~/share-it.zip path/to/Plasmoid-folder
+            plasmapkg -i ~/share-it.zip
+            
+    4.  Add the plasmoid from the 'Add widgets' option from the desktop.

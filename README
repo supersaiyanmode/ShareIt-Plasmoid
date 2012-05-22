@@ -33,11 +33,17 @@ SETTING UP
             'Application: <your app-id-here>'
         and put in the application-id you just created.
     
-    5.  Enter the ~/gae directory and type:
+    5.  Get your goo.gl shortener api key from here: 
+        In the Services pane, activate the Google URL Shortener API; if the
+        Terms of Service appear, read and accept them. Next, go to the API 
+        Access pane. The API key is in the section titled "Simple API Access."
+        Copy the API key, and paste it in ~/server/goo-gl-key
+        
+    6.  Enter the ~/gae directory and type:
             python appcfg.py update ~/server
         You may need to enter your google account details.
         
-    6.  After successful upload, you need to set up your client side.
+    7.  After successful upload, you need to set up your client side.
     
  - Setting up the plasmoid
  

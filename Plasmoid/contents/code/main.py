@@ -18,7 +18,12 @@ def getClipboard():
     
 def setClipboard(text):
     return QApplication.clipboard().setText(text)
-
+    
+def getAppId():
+    if 'appid' not in getAppId:
+        getAppId.appid = json.loads(open('~/.shareitplasmoid.cfg','r').read())['appid']
+    return getAppId.appid
+    
 class SharePlasmoid(plasmascript.Applet):
     def __init__(self,parent,args=None):
         plasmascript.Applet.__init__(self,parent)
@@ -94,7 +99,7 @@ class SharePlasmoid(plasmascript.Applet):
         #print "contentType: ",contentType
         #print "Posting\n",postData
         self.job = KIO.storedHttpPost(QByteArray(postData), \
-                    KUrl("http://www.file-sharer.appspot.com/paste"), KIO.HideProgressInfo)
+                    KUrl("http://www.%s.appspot.com/paste"%getAppId()), KIO.HideProgressInfo)
                     
         self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
         self.job.addMetaData("accept", "Accept: */*")
@@ -125,8 +130,7 @@ class SharePlasmoid(plasmascript.Applet):
                 'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url'])])
         except Exception,e:
             subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!'])
-            
-        
+
     def paintInterface(self, painter, option, rect):
         painter.save()
         

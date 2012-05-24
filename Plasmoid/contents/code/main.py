@@ -12,6 +12,7 @@ import Paste
 import images_rc
 import time
 import json
+import os
 
 def getClipboard():
     return QApplication.clipboard().text()
@@ -20,8 +21,8 @@ def setClipboard(text):
     return QApplication.clipboard().setText(text)
     
 def getAppId():
-    if 'appid' not in getAppId:
-        getAppId.appid = json.loads(open('~/.shareitplasmoid.cfg','r').read())['appid']
+    if not hasattr(getAppId,'appid'):
+        getAppId.appid = json.loads(open(os.path.expanduser('~/.shareitplasmoid.cfg'),'r').read())['appid']
     return getAppId.appid
     
 class SharePlasmoid(plasmascript.Applet):
@@ -95,9 +96,8 @@ class SharePlasmoid(plasmascript.Applet):
         else:
             print "Bummer!"
         
-        contentType, postData = Paste.paste(pasteData)
-        #print "contentType: ",contentType
-        #print "Posting\n",postData
+        contentType, postData = Paste.paste(pasteData)        
+        
         self.job = KIO.storedHttpPost(QByteArray(postData), \
                     KUrl("http://www.%s.appspot.com/paste"%getAppId()), KIO.HideProgressInfo)
                     
@@ -129,7 +129,7 @@ class SharePlasmoid(plasmascript.Applet):
             subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Shared!',
                 'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url'])])
         except Exception,e:
-            subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!'])
+            subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!' + str(e)])
 
     def paintInterface(self, painter, option, rect):
         painter.save()

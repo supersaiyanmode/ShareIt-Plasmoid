@@ -10,13 +10,37 @@ import zipfile
 import mimetypes
 import json
 import multipart
+import string
+import random
 
 def upload(fileName,mime):
-    return (multipart.post_multipart('file-sharer.appspot.com','/paste',
-            [('mime', mime)],
-            [('content',fileName,open(fileName,'r').read())]
-    ))
-
+    fields = [('mime', mime)]
+    files = [('content',fileName,open(fileName,'r').read())]
+    
+    boundaryChars = list(string.lowercase) + list(string.uppercase) + \
+                    [str(x) for x in range(10)] + ['_'*10]
+    random.shuffle(boundaryChars)    
+    
+    LIMIT = '----------'+''.join(boundaryChars[:15])
+    CRLF = '\r\n'
+    L = []
+    for (key, value) in fields:
+        L.append('--' + LIMIT)
+        L.append('Content-Disposition: form-data; name="%s"' % key)
+        L.append('')
+        L.append(value)
+    for (key, filename, value) in files:
+        L.append('--' + LIMIT)
+        L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
+        L.append('Content-Type: %s' % mimetypes.guess_type(filename)[0] or \
+                        'application/octet-stream')
+        L.append('')
+        L.append(value)
+    L.append('--' + LIMIT + '--')
+    L.append('')
+    body = CRLF.join(L)
+    content_type = 'multipart/form-data; boundary=%s' % LIMIT
+    return content_type, body
 
 def getTempFile():
     return tempfile.mkstemp()[1]

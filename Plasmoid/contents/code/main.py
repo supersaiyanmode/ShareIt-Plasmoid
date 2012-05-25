@@ -2,17 +2,18 @@ from PyQt4.QtCore import Qt,QTimer
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
 from PyKDE4.kio import KIO
-from PyKDE4.kdecore import KUrl
+from PyKDE4.kdeui import *
+from PyKDE4.kdecore import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtXml import *
 import subprocess
-import threading
 import Paste
 import images_rc
 import time
 import json
 import os
+import dbus
 
 def getClipboard():
     return QApplication.clipboard().text()
@@ -24,7 +25,14 @@ def getAppId():
     if not hasattr(getAppId,'appid'):
         getAppId.appid = json.loads(open(os.path.expanduser('~/.shareitplasmoid.cfg'),'r').read())['appid']
     return getAppId.appid
-    
+
+def sendNotify(title, text):
+    if not hasattr(sendNotify,'knotify'):
+        sendNotify.knotify = dbus.SessionBus().get_object("org.kde.knotify", "/Notify")
+        
+    sendNotify.knotify.event("warning", "kde", [], "ShareIt-Plasmoid - %s"%title, text, \
+                        [], [], 0, 0, dbus_interface="org.kde.KNotify")
+
 class SharePlasmoid(plasmascript.Applet):
     def __init__(self,parent,args=None):
         plasmascript.Applet.__init__(self,parent)
@@ -126,10 +134,12 @@ class SharePlasmoid(plasmascript.Applet):
             print data
             response = json.loads(data)
             setClipboard(response['url'])
-            subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Shared!',
-                'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url'])])
+            #subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Shared!',
+                #])
+            sendNotify("Shared!", 'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url']))
         except Exception,e:
-            subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!' + str(e)])
+            #subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!' + str(e)])
+            sendNotify("Oops!", 'Something went wrong somewhere..')
 
     def paintInterface(self, painter, option, rect):
         painter.save()

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+pyuic4 -o contents/code/configui.py contents/ui/app-config.ui
+if [$? != 0]; then
+    exit $?
+else
+    echo "Generated contents/code/configui.py"
+fi
+
+#overwrite images.qrc
+QRCFILE=contents/code/images.qrc
+echo "<RCC>" > $QRCFILE
+echo '  <qresource prefix="/images">' >> $QRCFILE
+for f in contents/images/*.png
+do
+    echo "    <file alias='$(basename $f)'>../images/$(basename $f)</file>" >> $QRCFILE
+done
+echo '  </qresource>' >> $QRCFILE
+echo '</RCC>' >>$QRCFILE
+
+pyrcc4 -o contents/code/images_rc.py contents/code/images.qrc
+
+if [$? != 0]; then
+    exit $?
+else
+    echo "Generated contents/code/images_rc.py"
+fi
+
+rm shareit-plasmoid.plasmoid
+zip -r shareit-plasmoid.plasmoid .
+plasmapkg -u shareit-plasmoid.plasmoid && plasmoidviewer ShareIt-Plasmoid

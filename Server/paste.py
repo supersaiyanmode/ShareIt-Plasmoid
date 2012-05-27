@@ -6,13 +6,19 @@ import ShortLink
 import mimetypes
 import Paste
 
+APP_KEY = "OWI0NDdhMDktMzJmNC00NGIyLTlmOTMtODA1NGNmNjA5M2QyZDAzZjMyZmMtZGYzMi00NTdjLWI0"
 class Paster(webapp.RequestHandler):
     def post(self):
+        key = self.request.get("key")
+        if key != APP_KEY:
+            self.error(404)
+            return
+        
         content = self.request.get("content")
         if content in (None,""):
             self.error(400)
             return
-
+        
         title = self.request.get("title")
         mime = self.request.get("mime") or "application/octet-stream"
         
@@ -29,7 +35,10 @@ class Paster(webapp.RequestHandler):
         self.response.out.write("\r\n")
         
     def get(self):
-        self.error(404)
+        if self.request.get("key") == APP_KEY:
+            self.response.out.write(json.dumps({"result":"success"}))
+        else:
+            self.error(404)
         
 
 application = webapp.WSGIApplication([('/paste',Paster)],debug=True)

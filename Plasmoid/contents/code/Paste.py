@@ -9,12 +9,16 @@ import os
 import zipfile
 import mimetypes
 import json
-import multipart
 import string
 import random
 
+from config import Config
+
 def upload(fileName,mime):
-    fields = [('mime', mime)]
+    fields = [('mime', mime), \
+                ('key', Config.getInstance()['appkey']) \
+    ]
+    
     files = [('content',fileName,open(fileName,'r').read())]
     
     boundaryChars = list(string.lowercase) + list(string.uppercase) + \
@@ -28,14 +32,14 @@ def upload(fileName,mime):
         L.append('--' + LIMIT)
         L.append('Content-Disposition: form-data; name="%s"' % key)
         L.append('')
-        L.append(value)
+        L.append(str(value))
     for (key, filename, value) in files:
         L.append('--' + LIMIT)
         L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
         L.append('Content-Type: %s' % mimetypes.guess_type(filename)[0] or \
                         'application/octet-stream')
         L.append('')
-        L.append(value)
+        L.append(str(value))
     L.append('--' + LIMIT + '--')
     L.append('')
     body = CRLF.join(L)

@@ -7,13 +7,17 @@ from PyKDE4.kdecore import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtXml import *
+
 import subprocess
-import Paste
-import images_rc
 import time
 import json
 import os
 import dbus
+
+import images_rc
+import Paste
+from config import Config
+from shareit_plasmoid_configui import PlasmoidConfig
 
 def getClipboard():
     return QApplication.clipboard().text()
@@ -21,11 +25,6 @@ def getClipboard():
 def setClipboard(text):
     return QApplication.clipboard().setText(text)
     
-def getAppId():
-    if not hasattr(getAppId,'appid'):
-        getAppId.appid = json.loads(open(os.path.expanduser('~/.shareitplasmoid.cfg'),'r').read())['appid']
-    return getAppId.appid
-
 def sendNotify(title, text):
     if not hasattr(sendNotify,'knotify'):
         sendNotify.knotify = dbus.SessionBus().get_object("org.kde.knotify", "/Notify")
@@ -38,26 +37,57 @@ class SharePlasmoid(plasmascript.Applet):
         plasmascript.Applet.__init__(self,parent)
     
     def init(self):
-        self.setHasConfigurationInterface(False)
+        self.setHasConfigurationInterface(True)
         self.resize(150,150)
         self.setAspectRatioMode(Plasma.Square)
         self.setAcceptDrops(True)
         
-        self.uploadIcon = QPixmap(':/images/upload.png')
-        self.iconState = {"mouseover":False, "uploading":0}
+        self.uploadIcons = [QPixmap(':/images/upload.png')] + \
+                [QPixmap(':/images/upload%d.png'%x) for x in range(1,6)]
+        
+        self.iconState = {"mouseover":False, "drag":False, "uploading":0}
         
         self.tooltip = Plasma.ToolTipContent()
-        self.tooltip.mainText = "Drag drop text, images or file(s) to share"
-        self.tooltip.subText = "The link to share will be copied to your clipboard"
-        #self.tooltip.image = self.uploadIcon
+        self.tooltip.setMainText("Drag drop text, images or file(s) to share")
+        self.tooltip.setSubText("The link to share will be copied to your clipboard")
+        #self.tooltip.setImage(self.uploadIcons[0])
         Plasma.ToolTipManager.self().setContent(self.applet, self.tooltip)
-
+        
         self.updateTimer = QTimer()
         self.updateTimer.timeout.connect(self.update)
+    
+    
+    def createConfigurationInterface(self, dialog):
+        self.configUi = PlasmoidConfig(self)
+        page = dialog.addPage(self.configUi,"Settings")
         
+        self.connect(dialog, SIGNAL("okClicked()"), self.configAccepted)
+        self.connect(dialog, SIGNAL("cancelClicked()"), self.configDenied)
+    def showConfigurationInterface(self):
+        dialog = KPageDialog()
+        dialog.setFaceType(KPageDialog.Plain)
+        dialog.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
+        self.createConfigurationInterface(dialog)
+        dialog.resize(400,300)
+        
+        dialog.exec_()
+    
+    def configAccepted(self):
+        print "configAccepted"
+        
+    def configDenied(self):
+        print "configDenied"
+        
+    def hoverEnterEvent(self, e):
+        self.iconState['mouseover'] = True
+        self.update()
+        
+    def hoverLeaveEvent(self,e):
+        self.iconState['mouseover'] = False
+        self.update()
         
     def dragEnterEvent(self, e):
-        self.iconState['mouseover'] = True
+        self.iconState['drag'] = True
         self.update()
         if e.mimeData().hasImage() or e.mimeData().hasUrls() or \
                 e.mimeData().hasHtml() or e.mimeData().hasFormat('text/plain'):
@@ -73,16 +103,15 @@ class SharePlasmoid(plasmascript.Applet):
             e.ignore()
             
     def dragLeaveEvent(self,e):
-        self.iconState['mouseover'] = False
+        self.iconState['drag'] = False
         self.update()
 
     def dropEvent(self, e):
-        self.iconState['mouseover'] = False
+        self.iconState['drag'] = False
         self.update()
         
         pasteData = {}
         if e.mimeData().hasImage():
-            print "Sending image!"
             img = e.mimeData().imageData().toPyObject()
             buf = QBuffer()
             buf.open(QIODevice.ReadWrite)
@@ -107,7 +136,8 @@ class SharePlasmoid(plasmascript.Applet):
         contentType, postData = Paste.paste(pasteData)        
         
         self.job = KIO.storedHttpPost(QByteArray(postData), \
-                    KUrl("http://www.%s.appspot.com/paste"%getAppId()), KIO.HideProgressInfo)
+                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
+                    KIO.HideProgressInfo)
                     
         self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
         self.job.addMetaData("accept", "Accept: */*")
@@ -117,7 +147,7 @@ class SharePlasmoid(plasmascript.Applet):
         self.job.start()
         
         if self.iconState['uploading'] == 0:
-            self.updateTimer.start(80)
+            self.updateTimer.start(150)
         self.iconState['uploading'] += 1
         
     def done(self, job):
@@ -134,28 +164,25 @@ class SharePlasmoid(plasmascript.Applet):
             print data
             response = json.loads(data)
             setClipboard(response['url'])
-            #subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Shared!',
-                #])
             sendNotify("Shared!", 'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url']))
         except Exception,e:
-            #subprocess.Popen(['/usr/bin/notify-send','-u','critical','-i','kollision','Error!','Oops! Something went wrong!' + str(e)])
             sendNotify("Oops!", 'Something went wrong somewhere..')
 
     def paintInterface(self, painter, option, rect):
         painter.save()
         
-        if not hasattr(self, '_pad'):
-            self._pad = 5
-            self._padSizeDelta = 1
-            
+        if not hasattr(self, '_uploadIconIndex'):
+            self._uploadIconIndex = 3
+            self._uploadIconIndexIncrement = 1
+        
         if self.iconState['uploading']:
-            if self._pad == 7:
-                self._padSizeDelta = -1
-            elif self._pad == 3:
-                self._padSizeDelta = 1
-            self._pad += self._padSizeDelta
+            if self._uploadIconIndex == 5:
+                self._uploadIconIndexIncrement = -1
+            elif self._uploadIconIndex == 1:
+                self._uploadIconIndexIncrement = 1
+            self._uploadIconIndex += self._uploadIconIndexIncrement
             
-        if self.iconState['mouseover']:
+        if self.iconState['drag']:
             pen = QPen(QColor(128,128,128))
             pen.setStyle(4)
             painter.setPen(pen)
@@ -165,11 +192,14 @@ class SharePlasmoid(plasmascript.Applet):
             painter.setOpacity(0.5)
             painter.fillRect(highlightRect,QColor(0,0,0))
             painter.setOpacity(opacity)
-        
-        pad = self._pad
+            self._uploadIconIndex = 5
+        elif self.iconState['mouseover']:
+            self._uploadIconIndex = 5
+            
+        pad = 2
         targetRect = QRect(rect.left()+pad, rect.top()+pad,
                         rect.width()-2*pad, rect.height()-2*pad)
-        img = self.uploadIcon.scaled(targetRect.size())
+        img = self.uploadIcons[self._uploadIconIndex].scaled(targetRect.size())
         painter.drawPixmap(targetRect, img, QRect(0,0,targetRect.width(), targetRect.height()))
         
         painter.restore()

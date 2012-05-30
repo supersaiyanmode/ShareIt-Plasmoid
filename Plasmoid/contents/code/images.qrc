@@ -1,10 +1,19 @@
 <RCC>
   <qresource prefix="/images">
+    <file alias='code1.png'>../images/code1.png</file>
+    <file alias='code2.png'>../images/code2.png</file>
+    <file alias='code3.png'>../images/code3.png</file>
+    <file alias='code4.png'>../images/code4.png</file>
+    <file alias='code5.png'>../images/code5.png</file>
+    <file alias='email1.png'>../images/email1.png</file>
+    <file alias='email2.png'>../images/email2.png</file>
+    <file alias='email3.png'>../images/email3.png</file>
+    <file alias='email4.png'>../images/email4.png</file>
+    <file alias='email5.png'>../images/email5.png</file>
     <file alias='upload1.png'>../images/upload1.png</file>
     <file alias='upload2.png'>../images/upload2.png</file>
     <file alias='upload3.png'>../images/upload3.png</file>
     <file alias='upload4.png'>../images/upload4.png</file>
     <file alias='upload5.png'>../images/upload5.png</file>
-    <file alias='upload.png'>../images/upload.png</file>
   </qresource>
 </RCC>

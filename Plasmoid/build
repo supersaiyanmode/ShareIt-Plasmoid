@@ -1,11 +1,7 @@
 #!/bin/bash
 
-pyuic4 -o contents/code/configui.py contents/ui/app-config.ui
-if [$? != 0]; then
-    exit $?
-else
-    echo "Generated contents/code/configui.py"
-fi
+pyuic4 -o contents/code/configui.py contents/ui/app-config.ui || exit $?
+pyuic4 -o contents/code/emailui.py contents/ui/email.ui || exit $?
 
 #overwrite images.qrc
 QRCFILE=contents/code/images.qrc
@@ -18,13 +14,7 @@ done
 echo '  </qresource>' >> $QRCFILE
 echo '</RCC>' >>$QRCFILE
 
-pyrcc4 -o contents/code/images_rc.py contents/code/images.qrc
-
-if [$? != 0]; then
-    exit $?
-else
-    echo "Generated contents/code/images_rc.py"
-fi
+pyrcc4 -o contents/code/images_rc.py contents/code/images.qrc || exit $?
 
 rm shareit-plasmoid.plasmoid
 zip -r shareit-plasmoid.plasmoid .

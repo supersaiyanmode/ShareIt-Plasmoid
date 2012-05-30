@@ -14,10 +14,12 @@ import json
 import os
 import dbus
 
+from config import Config
+from shareit_plasmoid_configui import PlasmoidConfigUI
+import emailui
+
 import images_rc
 import Paste
-from config import Config
-from shareit_plasmoid_configui import PlasmoidConfig
 
 def getClipboard():
     return QApplication.clipboard().text()
@@ -42,15 +44,33 @@ class SharePlasmoid(plasmascript.Applet):
         self.setAspectRatioMode(Plasma.Square)
         self.setAcceptDrops(True)
         
-        self.uploadIcons = [QPixmap(':/images/upload.png')] + \
-                [QPixmap(':/images/upload%d.png'%x) for x in range(1,6)]
+        self.modes = [
+            {
+                "name":"UPLOAD", 
+                "icons":[QPixmap(":/images/upload%d.png"%x) for x in range(1,6)],
+                "handler": self.handleUpload
+            },
+            {
+                "name":"MAIL",
+                "icons":[QPixmap(":/images/email%d.png"%x) for x in range(1,6)],
+                "handler": self.handleEmail
+            },
+            {
+                "name":"CODE",
+                "icons":[QPixmap(":/images/code%d.png"%x) for x in range(1,6)],
+                "handler":self.handleCode
+            }
+                
+        ]
+        self.curMode = 1
+        
         
         self.iconState = {"mouseover":False, "drag":False, "uploading":0}
         
         self.tooltip = Plasma.ToolTipContent()
         self.tooltip.setMainText("Drag drop text, images or file(s) to share")
         self.tooltip.setSubText("The link to share will be copied to your clipboard")
-        #self.tooltip.setImage(self.uploadIcons[0])
+        self.tooltip.setImage(self.modes[self.curMode]['icons'][3].scaled(64,64))
         Plasma.ToolTipManager.self().setContent(self.applet, self.tooltip)
         
         self.updateTimer = QTimer()
@@ -63,6 +83,7 @@ class SharePlasmoid(plasmascript.Applet):
         
         self.connect(dialog, SIGNAL("okClicked()"), self.configAccepted)
         self.connect(dialog, SIGNAL("cancelClicked()"), self.configDenied)
+        
     def showConfigurationInterface(self):
         dialog = KPageDialog()
         dialog.setFaceType(KPageDialog.Plain)
@@ -86,22 +107,29 @@ class SharePlasmoid(plasmascript.Applet):
         self.iconState['mouseover'] = False
         self.update()
         
-    def dragEnterEvent(self, e):
+    def dragMoveEvent(self, e):
         self.iconState['drag'] = True
-        self.update()
+        accept = None
         if e.mimeData().hasImage() or e.mimeData().hasUrls() or \
                 e.mimeData().hasHtml() or e.mimeData().hasFormat('text/plain'):
             if e.mimeData().hasUrls():
                 urls = [x.toLocalFile().toLocal8Bit().data() for x in e.mimeData().urls()]
                 if len(urls):
-                    e.accept()
+                    accept =True
                 else:
-                    e.ignore()
+                    accept = False
             else:
-                e.accept()
+                accept = True
+        else:
+            accept = False
+        
+        if accept:
+            e.accept()
         else:
             e.ignore()
-            
+        
+        self.update()
+        
     def dragLeaveEvent(self,e):
         self.iconState['drag'] = False
         self.update()
@@ -129,33 +157,25 @@ class SharePlasmoid(plasmascript.Applet):
         elif e.mimeData().hasFormat('text/plain'):
             pasteData['type'] = 'text'
             pasteData['mime'] = 'text/plain'
-            pasteData['data'] = e.mimeData().text()
+            pasteData['data'] = str(e.mimeData().text())
         else:
             print "Bummer!"
-        
-        contentType, postData = Paste.paste(pasteData)        
-        
-        self.job = KIO.storedHttpPost(QByteArray(postData), \
-                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
-                    KIO.HideProgressInfo)
-                    
-        self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
-        self.job.addMetaData("accept", "Accept: */*")
-        self.job.addMetaData("user-agent", "User-Agent: share-plasmoid")
-
-        self.job.result.connect(self.done)
-        self.job.start()
+        print type(pasteData['data'])
+        self.modes[self.curMode]['handler'](pasteData, e.mimeData().text())
         
         if self.iconState['uploading'] == 0:
             self.updateTimer.start(150)
         self.iconState['uploading'] += 1
-        
+    
+    def wheelEvent(self, event):
+        self.curMode = (self.curMode + len(self.modes) + (1 if event.delta()<0 else -1)) % len(self.modes)
+        self.update()
+            
     def done(self, job):
         self.iconState['uploading'] -= 1
         if self.iconState['uploading'] == 0:
             self.updateTimer.stop()
-            self._pad = 5
-        
+         
         try:
             if job.error():
                 raise Exception("Unable to send the object.")
@@ -167,9 +187,10 @@ class SharePlasmoid(plasmascript.Applet):
             sendNotify("Shared!", 'You can access it at <a href="%s">%s</a>.<br><sub>The link has also been copied to your clipboard</sub>'%(response['url'],response['url']))
         except Exception,e:
             sendNotify("Oops!", 'Something went wrong somewhere..')
-
+     
     def paintInterface(self, painter, option, rect):
         painter.save()
+        pad = 2
         
         if not hasattr(self, '_uploadIconIndex'):
             self._uploadIconIndex = 3
@@ -186,7 +207,6 @@ class SharePlasmoid(plasmascript.Applet):
             pen = QPen(QColor(128,128,128))
             pen.setStyle(4)
             painter.setPen(pen)
-            pad = 2
             highlightRect = QRect(rect.left()+pad,rect.top()+pad,rect.width()-2*pad, rect.height()-2*pad)
             opacity = painter.opacity()
             painter.setOpacity(0.5)
@@ -195,14 +215,72 @@ class SharePlasmoid(plasmascript.Applet):
             self._uploadIconIndex = 5
         elif self.iconState['mouseover']:
             self._uploadIconIndex = 5
+        elif not self.iconState['uploading'] and not self.iconState['mouseover']:
+            self._uploadIconIndex = 3
             
-        pad = 2
         targetRect = QRect(rect.left()+pad, rect.top()+pad,
                         rect.width()-2*pad, rect.height()-2*pad)
-        img = self.uploadIcons[self._uploadIconIndex].scaled(targetRect.size())
+        img = self.modes[self.curMode]['icons'][self._uploadIconIndex-1].scaled(targetRect.size())
         painter.drawPixmap(targetRect, img, QRect(0,0,targetRect.width(), targetRect.height()))
         
         painter.restore()
+        
+    def handleUpload(self, pasteData, text):
+        contentType, postData = Paste.uploadFile(pasteData)
+        
+        self.job = KIO.storedHttpPost(QByteArray(postData), \
+                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
+                    KIO.HideProgressInfo)
+                    
+        self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
+        self.job.addMetaData("accept", "Accept: */*")
+        self.job.addMetaData("user-agent", "User-Agent: share-plasmoid")
+
+        self.job.result.connect(self.done)
+        self.job.start()
+        
+    def handleCode(self, pasteData, text):
+        contentType,postData = Paste.pasteCode(text)
+        self.job = KIO.storedHttpPost(QByteArray(postData), \
+                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
+                    KIO.HideProgressInfo)
+                    
+        self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
+        self.job.addMetaData("accept", "Accept: */*")
+        self.job.addMetaData("user-agent", "User-Agent: share-plasmoid")
+
+        self.job.result.connect(self.done)
+        self.job.start()
+        
+    def handleEmail(self, pasteData, text):
+        print type(pasteData['data'])
+        dialog = KPageDialog()
+        dialog.setFaceType(KPageDialog.Plain)
+        dialog.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
+        width, height =  dialog.size().width(), dialog.size().height()
+        
+        self.emailUi = QWidget()
+        self.emailDialog = emailui.Ui_Dialog()
+        self.emailDialog.setupUi(self.emailUi)
+        
+        width = self.emailUi.size().width() + 100
+        height = self.emailUi.size().height() + 100
+        
+        page = dialog.addPage(self.emailUi,"Settings")
+        
+        self.connect(dialog, SIGNAL("okClicked()"), 
+            lambda: Paste.email(
+                str(self.emailDialog.txtEmailTo.text()).strip(),
+                str(self.emailDialog.txtSubject.text()).strip(),
+                str(self.emailDialog.txtBody.toPlainText()).strip(),
+                pasteData
+            )
+        )
+        self.connect(dialog, SIGNAL("cancelClicked()"),lambda: ())
+        
+        dialog.resize(width,height)
+        
+        dialog.exec_()
         
 def CreateApplet(parent):
     return SharePlasmoid(parent)

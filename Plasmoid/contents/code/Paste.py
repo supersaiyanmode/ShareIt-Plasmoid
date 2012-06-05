@@ -32,10 +32,9 @@ def zipFiles(fileNames):
     z.close()
     return zipFileName
 
-def upload(fileName,mime):
-    fields = [('mime', mime), \
-                ('key', Config.getInstance()['appkey']) \
-    ]
+def upload(fileName,mime, params = {}):
+    fields = {'mime': mime,'key':Config.getInstance()['appkey']}
+    fields.update(params)
     
     files = [('content',fileName,open(fileName,'r').read())]
     
@@ -46,7 +45,7 @@ def upload(fileName,mime):
     LIMIT = '----------'+''.join(boundaryChars[:15])
     CRLF = '\r\n'
     L = []
-    for (key, value) in fields:
+    for (key, value) in fields.iteritems():
         L.append('--' + LIMIT)
         L.append('Content-Disposition: form-data; name="%s"' % key)
         L.append('')
@@ -102,6 +101,12 @@ def pasteFile(obj):
         res = upload(zipFileName, 'application/zip')
         os.unlink(zipFileName)
         return res
+        
+def pasteCode(text):
+    fileName = writeTempFile(text,'w')
+    res = upload(fileName,"text/plain", {"type":"code"})
+    os.unlink(fileName)
+    return res
 
 def uploadFile(obj):
     if 'type' not in obj:
@@ -117,8 +122,6 @@ def uploadFile(obj):
         res = pasteText(obj)
     return res
     
-def pasteCode(text):
-    return "text/plain", text
     
 def email(emailID, subject, body, obj):
     if 'type' not in obj:

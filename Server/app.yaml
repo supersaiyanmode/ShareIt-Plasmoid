@@ -6,6 +6,12 @@ api_version: 1
 handlers:
 - url: /paste
   script: paste.py
+
+- url: /css
+  static_dir: css
+
+- url: /js
+  static_dir: js
   
 - url: /.*
   script: show.py

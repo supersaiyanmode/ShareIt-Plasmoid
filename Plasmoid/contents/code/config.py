@@ -13,7 +13,7 @@ class Config:
     def __getitem__(self, key):
         if key in self.config:
             return str(self.config[key])
-        raise None
+        raise KeyError(key)
     
     def __setitem__(self, key, value):
         self.config[key] = value

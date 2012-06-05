@@ -229,7 +229,7 @@ class SharePlasmoid(plasmascript.Applet):
         contentType, postData = Paste.uploadFile(pasteData)
         
         self.job = KIO.storedHttpPost(QByteArray(postData), \
-                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
+                    KUrl("%s/paste"%Config.getInstance()['appurl']), \
                     KIO.HideProgressInfo)
                     
         self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
@@ -242,7 +242,7 @@ class SharePlasmoid(plasmascript.Applet):
     def handleCode(self, pasteData, text):
         contentType,postData = Paste.pasteCode(text)
         self.job = KIO.storedHttpPost(QByteArray(postData), \
-                    KUrl("http://www.%s.appspot.com/paste"%Config.getInstance()['appid']), \
+                    KUrl("%s/paste"%Config.getInstance()['appurl']), \
                     KIO.HideProgressInfo)
                     
         self.job.addMetaData("content-type", "Content-Type: %s"%contentType)
@@ -263,8 +263,8 @@ class SharePlasmoid(plasmascript.Applet):
         self.emailDialog = emailui.Ui_Dialog()
         self.emailDialog.setupUi(self.emailUi)
         
-        width = self.emailUi.size().width() + 100
-        height = self.emailUi.size().height() + 100
+        width = self.emailUi.size().width() + 30
+        height = self.emailUi.size().height() + 30
         
         page = dialog.addPage(self.emailUi,"Settings")
         
@@ -281,6 +281,10 @@ class SharePlasmoid(plasmascript.Applet):
         dialog.resize(width,height)
         
         dialog.exec_()
+        
+        self.iconState['uploading'] -= 1
+        if self.iconState['uploading'] == 0:
+            self.updateTimer.stop()
         
 def CreateApplet(parent):
     return SharePlasmoid(parent)
